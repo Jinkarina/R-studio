@@ -1,0 +1,179 @@
+---
+title: "Technical Appendix for Salary Analysis"
+author: "Jin Hirota"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 3
+    toc_float: TRUE
+    number_sections: TRUE
+---
+```{r echo=FALSE}
+#Course: BUAN3210
+#Title: Salary Analysis Technical Appendix
+#Purpose: Illulstrate the several kinds of graphs based on the file called "salary.csv"
+#Date: April 11, 2019
+#Author: Gareth Green
+
+```
+
+```{r echo=FALSE}
+#Clear environment of variables and functions
+rm(list = ls(all=TRUE))
+
+#Clear environment of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+
+```
+
+
+```{r warning= FALSE, message=FALSE}
+#Install the packages below before trying to run this file
+
+library(tidyverse)
+```
+
+```{r warning= FALSE, message=FALSE}
+
+library("ggplot2")
+```
+
+# Load and transform data
+
+```{r}
+# Load the data
+sal<-read.csv("salary.csv") 
+```
+
+```{r}
+# Review the data
+head(sal)
+```
+
+```{r}
+# Review the data 
+str(sal) 
+```
+
+```{r}
+# Review the data
+summary(sal)
+```
+# Add a code chunks to a frame with ggplot and the use of geometoric
+##Relationship between Education and Salary
+# Graph 1
+```{r, echo=FALSE}
+#Specify a frame for crating a graph
+p<-ggplot(data=sal, mapping=aes(x=Education, y=Salary))
+
+#Specify geom, add to p which is the frame
+ed_sal<- p+geom_smooth(method = "lm", se=FALSE)+geom_point(mapping=aes(color=Gender))
+
+# View the graph
+ed_sal
+```
+
+**Observation on the first graph**
+From this graph, we are able to determine that the workers who are getting longer education tend to be getting higher salary. Also, based on gender, the number of male workers getting higher salary than average is more than the number of female workers getting higher salary than the average.
+
+## Graph 2 with Salary
+```{r, echo=FALSE}
+# Making a new variable called h
+h<-ggplot(data=sal, mapping=aes(x=Salary))
+# Use the histgram
+h+geom_histogram(mapping=aes(fill=Gender))
+```
+
+**Observation on the second graph**
+From this graph, we are able to see the fact which is that there are more females getting higher salary comparred to males within the range from $30,000 to $110,000. However, we also found out that people who is getting higher than $110,000 for salary tend to be males. In addition, the most frequency of people regradless of their gender is at approximately $90,000.
+
+## Graph 3 with Experience
+```{r echo=FALSE}
+# Create a form for a barchart
+b<-ggplot(data=sal, mapping=aes(x=Experience, fill=Gender))
+
+# Add a Barchart
+b + geom_bar()
+
+
+```
+**Observation on the third graph**
+From this graph, we are able to conclude that female workers who has 15 years working experience has the most frequency. Most of female workers varys between 1 year to 18 years of experience, but later on towreds to get 30 years, there are more male workers than female workers. Therefore, people who getting more working experience tend to be male workers.
+
+## Graph 4 with dencity and Experience
+```{r, echo=FALSE}
+#Create a form for the graph
+d<-ggplot(data = sal, mapping=aes(x=Experience, fill=Gender), alpha=0.5)
+# Add a density graph
+d+geom_density()
+```
+
+**Observation on the forth graph**
+From this graph, we found out female workers vary between 1 year to 10 years the most. Especially female workers getting 10 years experience has the highest dencity. For male workers, the workers who has approximately 15 years of working experience have the highest dencity. Also, we can conclude that female workers has more dencity than male has when they get the highest dencity.
+
+## Graph 5 with Education
+```{r echo=FALSE}
+# Create a Clustered bargraph
+c<-ggplot(data=sal, mapping=aes(x=Education, fill=Gender))
+
+# Use the bar geom
+c + geom_bar(position = "dodge") + coord_flip() + theme_classic()
+```
+
+**Observation on the fifth graph**
+From this graph, we found out that there is the highest frequency for male workers getting 15 years of education. For female, those workers who getting between 15 to 17.5 years has the most number of female workers.
+
+##Graph 6 with Education and Experience based on Gender
+```{r echo=FALSE}
+# Create a new veriable to reset original frame
+g<-ggplot(data = sal, mapping = aes(x = reorder(Education, Experience), y=Experience, fill=Gender))
+# Use the bar geom
+g + geom_bar(position = "dodge", stat = "summary", fun.y= "mean") + coord_flip() + theme_classic()
+```
+
+**Observation on the sixth graph**
+This graph shows the relationship between experience and education with the horizontal graph. 
+
+## Relationship between Salary and Experience
+# Graph 1 with plots
+```{r echo=FALSE}
+
+# Add a frame to make a graph
+l <-ggplot(data = sal, mapping = aes(x= Experience, y= Salary, color= Gender))
+
+# Add geom and make a graph based on Experience and Salary
+exp_sal_gend<-l + geom_point()+ geom_smooth(method = "lm", se = FALSE)
+
+# View the graph
+exp_sal_gend
+
+```
+
+**Observation for graph 1**
+This graph shows us the relationship between salary and experience with plots. The main reason why we created this graph was we wanted to know how the working experiences affect their salary. In this graph, a male worker getting more 30 years working experience has the highest salary.
+
+# Graph 2 with boxplot
+```{r echo=FALSE, message=FALSE}
+# Add a frame to create a graph
+x<-ggplot(data= sal, mapping = aes(x = Salary, y = Experience, color= Gender))
+
+# Add a geom to the fram "x" to make a box chart
+sal_ex_gen <-x + geom_boxplot()
+
+#View the graph
+sal_ex_gen
+
+# Save previous graph to use in memo
+ggsave("sal_ex_gen.png", plot = sal_ex_gen)
+```
+
+**Observation for graph 2**
+This shows the box plots showing the relationship between salary and experience of both female and male workers based on the dataset.
+
+# Save graphs to use in memo
+```{r, message=FALSE}
+ggsave("ed_sal.png", plot =ed_sal)
+ggsave("exp_sal_gend.png", plot = exp_sal_gend)
+```
+

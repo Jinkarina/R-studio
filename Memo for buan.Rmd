@@ -1,0 +1,56 @@
+---
+output: html_document
+---
+
+#### **To: My new unreasonably demanding manager**  
+  
+#### **From: Jin Hirota**  
+  
+#### **Date: `r format(Sys.time(), '%B %d, %Y')`**   
+  
+#### **RE: Disability Payments Analysis**  
+
+***
+
+```{r echo = FALSE}
+# Course: BUAN 3210
+# Title: HTML memo format
+# Purpose: Illustrate how to make a memo and import a saved project visual
+# Date: April 12, 2019
+# Author: Jin Hirota
+
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+
+# Clear environmet of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# Load librarys
+# NO LIBRARIES NEEDED
+
+```
+
+
+I was asked to perform a brief analysis of disability payment to better understand the relationship between age, ethnicity, gender and expenditures. The data set provided included 1,000 observations with the variables mentioned above. I was surprised to find that average expenditures on disability payments varies dramatically by ethnicity and that there is large difference in the number of payments by race. There are not many difference by gender. There is also a jump in expenditures following ages 18 and 22, which is likely related to a regulatory requirement. 
+
+On this graph in the below, we are trying to show the relationship between salary and how long they are getting education. Also, we investigate how the years of education affect their salary. From this graph, we are able to determine that the value of the liner graph which is colored in blue is increasing more as you have more education. In other words, people who are getting longer education tend to have higher salary than people getting shorter education. However, people who are getting higher salary than the average which is $89,608 are mostly males compared to the number of females. Therefore, we can conclude that the number of people who are getting 15 years of education has the highest frequency. In addition to this, as people who are getting longer education, they get more paid.
+
+```{r}
+png(filename = ed_sal.png, width = 400)
+
+```
+
+
+Please do not hesitate to contact me if you have questions or would like to discuss the analysis further, it is best to reach me at hirotajin@seattleu.edu. I can also provide the Technical Appendix with my complete analysis and the data if you would like more detail.
+
+Best regards,
+
+Gareth

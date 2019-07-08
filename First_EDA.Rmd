@@ -1,0 +1,158 @@
+---
+title: "Technical Appendix for Salary Analysis"
+author: "Jin Hirota"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 3
+    toc_float: TRUE
+    number_sections: TRUE
+---
+```{r echo=FALSE}
+#Course: BUAN3210
+#Title: Salary Analysis Technical Appendix
+#Purpose: Illulstrate the several kinds of graphs based on the file called "salary.csv"
+#Date: April 11, 2019
+#Author: Gareth Green
+
+```
+
+```{r echo=FALSE}
+#Clear environment of variables and functions
+rm(list = ls(all=TRUE))
+
+#Clear environment of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+
+```
+
+
+```{r warning= FALSE}
+#Install the packages below before trying to run this file
+
+library(tidyverse)
+```
+
+```{r warning= FALSE}
+
+library("ggplot2")
+```
+
+# Load and transform data
+
+```{r echo=FALSE}
+# Load the data
+sal<-read.csv("salary.csv") 
+```
+
+```{r echo=FALSE}
+# Review the data
+head(sal)
+```
+
+```{r echo=FALSE}
+# Review the data 
+str(sal) 
+```
+
+```{r echo=FALSE}
+# Review the data
+summary(sal)
+```
+# Add a code chunks to a frame with ggplot and the use of geometoric
+##Relationship between Education and Salary
+# Graph 1
+```{r echo=FALSE}
+#Specify a frame for crating a graph
+p<-ggplot(data=sal, mapping=aes(x=Education, y=Salary))
+
+#Specify geom, add to p which is the frame
+p+geom_smooth(method = "lm", se=FALSE)+geom_point(mapping=aes(color=Gender))
+
+```
+
+*Observations on the first graph #1*
+On this graph, we are trying to show the relationship between salary and how long they are getting education. Also, we investigate how the years of education affect their salary. From this graph, we are able to determine that the value of the liner graph which is colored in blue is increasing more as you have more education. In other words, people who are getting longer education tend to have higher salary than people getting shorter education. However, people who are getting higher salary than the average which is $89,608 are mostly males compared to the number of females. Therefore, we can conclude that the number of people who are getting 15 years of education has the highest frequency. In addtion to this, as people who are getting longer education, they get more paid.  
+
+## Graph 2 with Salary
+```{r echo=FALSE}
+# Making a new variable called h
+h<-ggplot(data=sal, mapping=aes(x=Salary))
+# Use the histgram
+h+geom_histogram(mapping=aes(fill=Gender))
+```
+*Observation on the second graph*
+From this graph, we are able to see the fact which is that there are more females getting higher salary comparred to males within the range from $30,000 to $110,000. However, we also found out that people who is getting higher than $110,000 for salary tend to be males. In addition, the most frequency of people regradless of their gender is at approximately $90,000.
+
+## Graph 3 with Experience
+```{r echo=FALSE}
+# Create a form for a barchart
+b<-ggplot(data=sal, mapping=aes(x=Experience, fill=Gender))
+
+# Add a Barchart
+b + geom_bar()
+
+
+```
+
+## Graph 4 with dencity and Experience
+```{r echo=FALSE}
+#Create a form for the graph
+d<-ggplot(data = sal, mapping=aes(x=Experience, fill=Gender), alpha=0.5)
+# Add a density graph
+d+geom_density()
+```
+
+## Graph 5 with Education
+```{r echo=FALSE}
+# Create a Clustered bargraph
+c<-ggplot(data=sal, mapping=aes(x=Education, fill=Gender))
+
+# Use the bar geom
+c + geom_bar(position = "dodge") + coord_flip() + theme_classic()
+```
+
+##Graph 6 with Education and Experience based on Gender
+```{r echo=FALSE}
+# Create a new veriable to reset original frame
+g<-ggplot(data = sal, mapping = aes(x = reorder(Education, Experience), y=Experience, fill=Gender))
+# Use the bar geom
+g + geom_bar(position = "dodge", stat = "summary", fun.y= "mean") + coord_flip() + theme_classic()
+```
+
+## Relationship between Salary and Experience
+# Graph 1 with plots
+```{r echo=FALSE}
+
+# Add a frame to make a graph
+l <-ggplot(data = sal, mapping = aes(x= Experience, y= Salary, color= Gender))
+
+# Add geom and make a graph based on Experience and Salary
+exp_sal_gend<-l + geom_point()+ geom_smooth(method = "lm", se = FALSE)
+
+# View the graph
+exp_sal_gend
+
+```
+# Graph 2 with boxplot
+```{r echo=FALSE}
+# Add a frame to create a graph
+x<-ggplot(data= sal, mapping = aes(x = Salary, y = Experience, color= Gender))
+
+# Add a geom to the fram "x" to make a box chart
+sal_ex_gen <-x + geom_boxplot()
+
+#View the graph
+sal_ex_gen
+
+# Save previous graph to use in memo
+ggsave("sal_ex_gen.png", plot = sal_ex_gen)
+```
+
+# Save graphs to use in memo
+```{r echo=FALSE message=FALSE}
+ggsave("p.png", plot =p)
+ggsave("sal_ex_gen.png", plot = sal_ex_gen)
+```
+
