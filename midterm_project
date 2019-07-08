@@ -1,0 +1,1070 @@
+---
+title: "General Mills Promotions and Advertisements Analysis Technical Appendix"
+author: "Yue Zhang and Jin Hirota"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+---
+
+
+
+```{r echo = FALSE}
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+
+# Clear environmet of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+
+```
+
+```{r}
+# Load librarys
+library(tidyverse)     # For wrangling, subseting, and ploting
+library(lubridate)     # For working with dates
+library(GGally)        # For ggpairs, a detailed correlation graphic
+library(gridExtra)     # For grouping graphs
+library(janitor)       # Tidy cross tabs
+library(MultinomialCI) # To calculate multinomial confidence intervals  
+library(htmlTable)     # To format html tables
+```
+
+# Base EDA
+
+## Load and transform data
+### Load data
+```{r}
+# Load data
+gmp <- read.csv("mtp_product_data.csv")
+gms <- read.csv("mtp_sales_data.csv")
+```
+
+### Review data on products
+
+```{r}
+head(gmp)
+```
+
+
+```{r}
+# Review data
+head(gmp)
+str(gmp)
+summary(gmp)
+```
+
+**Observations on the data**
+
++ There are several cereal brands and some brands have several types of products
+
++ Most cereal's flavor is regular.
+
++ The volume seems to be symmetrically distributed. 4 might be the outlier as it is much higher than the 3rd quartile.
+
++ Most products are packaged in boxes instead of cups.
+
+### Review data on sales
+```{r}
+# Review data
+head(gms)
+str(gms)
+summary(gms)
+```
+
+**Observations on data**
+
++ It seems that sales are pretty spread out throughout the year.
+
++ Most products' prices range from $3 to $4.5.
+
++ Few products were sold with in store promotion.
+
++ Only around 7 percent of the sales had big advertisements. And around 5 percent of the sales had medium/small advertisements.
+
+
+### Convert data  
+
+```{r}
+# Convert iri_key, promo, and week to factor, integer does not make sense
+gms$iri_key <- as.factor(gms$iri_key)
+gms$promo <- as.factor(gms$promo)
+gms$week <- as.factor(gms$week)
+
+# Convert UPC in the product table to match that in the sales table
+# Find and replace dashline with dot
+gmp$UPC <- str_replace_all(gmp$UPC, "-", ".") 
+# Reduce the strings in the UPC's length to match the UPC's length in the sales table 
+gmp$UPC <- str_sub(gmp$UPC, 4, length(gmp$UPC))
+
+# Review data
+head(gmp$UPC,5)
+```
+
+### Joining data
+```{r}
+gm <- gms %>%
+  full_join(gmp, by = "UPC")
+
+gm$UPC <- as.factor(gm$UPC)
+
+str(gm)
+```
+
+### Questions to be followed up 
+
+1. Which brands' sales are most affected by promotions/advertisements?
+
+2. Why only a small portion of sales had promotions/advertisements? 
+
+3. What time of the year did the stores have promotions?  
+
+4. How did the scale of advertisements relate to sales?
+
+
+# Add code chunks and experiment with ggplot to view the data
+
+## Univariate graphical - categorical 
+```{r}
+# Code univariate bar graphs using grid.arrange so can see all quant variables together
+grid.arrange(
+  gm %>% 
+    ggplot(aes(week)) + 
+      geom_bar(),
+  gm %>% 
+    ggplot(aes(iri_key)) +
+      geom_bar(),
+  gm %>% 
+    ggplot(aes(brand)) +
+      geom_bar(),
+  gm %>% 
+    ggplot(aes(flavor)) +
+      geom_bar(position = "dodge") + coord_flip(),
+  ncol = 2
+)
+```
+
+### Comments and questions on the graphs 
+
+**Comments**
+
++ Numbers of sales are pretty similar throughout the year. 
+
++ Some brands have higher sales than the others.
+
++ It seems that the toasted and regular flavors are the most popular flavors
+
++ Some stores have much higher sales than the others.
+
+
+**Questions**
+
++ Would there be higher sales at the beginning of the months?
+
++ Do the brands which have higher sales have more advertisements/promotions?
+
++ Do the sales of flavor relate to promotions/advertisements or time of the year?
+
+
+## Univariate graphical - quantitative 
+
+```{r}
+# Code histograms using grid.arrange so can see all quant variables together
+grid.arrange(
+  gm %>% 
+    ggplot(aes(units)) +
+      geom_histogram(),
+  gm %>% 
+    ggplot(aes(price)) +
+      geom_histogram(),
+  gm %>% 
+    ggplot(aes(volume)) +
+      geom_histogram(),
+  ncol = 1
+)
+```
+
+### Comments and questions on the data  
+
+**Comments**
+
++ Histogram does not seem to be the best graph to present the units data.
+
++ Most products were sold less than 10 units per week per store.
+
++ Most products' prices range from $2.5 to $5.
+
++ Most products' volumes are around 0.5 to 1.5.
+
+
+**Questions**
+
++ How do units sold relate to promotions/advertisements?
+
++ Which cereal package size is the best seller?
+
++ How does price relate to units sold?
+
+
+## Boxplots of quantitative data in ggplot2
+
+```{r}
+# Set x = 1 to make a boxplot of a single continuous variable 
+  ## because the boxplot does not have a width associated with it so gives alignment
+grid.arrange (
+  ggplot(gm, aes(x = 1, y = units)) +
+    geom_boxplot(),
+  
+  ggplot(gm, aes(x = 1, y = price)) +
+    geom_boxplot(),
+  
+  ggplot(gm, aes(x = 1, y = volume)) +
+    geom_boxplot(),
+  
+    ncol = 2
+)
+```
+
+**Comments**
+
++ About 75% of the products are sold less than 12 units per store in a week.
+
++ Most products have similar prices, while there are some products have very high/low prices.
+
++ The package sizes of the products are pretty similar.
+
+
+## Multi-variate graphical - categorical 
+
+```{r}
+# tidyverse friendly cross-tab using janitor package 
+gm %>% 
+  tabyl(brand, promo)
+```
+
+**Comments**
+
++ The fruit flavor seems to have in store promotions more often than other flavors.
++ The regular flavor has the smallest portion of sales with in store promotions.
+
+**Questions**
+
++ How did promotions help boost the sales of other flavors?
+
+
+## Multi-variate non-graphical - quantitative
+
+```{r}
+gm %>% 
+  select_if(is.numeric)%>%
+  cor() %>% 
+  round(2)
+
+```
+
+**Comments**
+
++ The correlation between units and price is negative which makes sense since people tend to buy more products when the prices are low.
+
++ The correlation between volume and price is pretty high, which means that the products' prices are higher when their package sizes are bigger. 
+
++ The correlation between units and volume is pretty low.
+
+
+**Questions**
+
++ What are the factors that affect the correlation between units and price?
+
+ 
+## Multi-variate graphical - categorical
+
+```{r}
+# Note have to calculate and provide a variable for filling the graph
+promo_ads<-gm %>%
+  group_by(promo, ad) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(promo, ad)) + 
+  geom_tile(aes(fill = -count)) + ggtitle("The number of Promotions with or without the advertisements", sub = "Promotions 0 without any advertisements has the highest number of products") + xlab("Promotion") + ylab("Advertisement") + labs(fill = "Counts") + theme_classic() 
+            
+# Put "-" in front of "count" to reverse color order
+
+# View graph
+
+promo_ads
+
+```
+
+**Comments**
+
++ The company tends to have in store promotion more than advertisements.
+
++ The company have big advertisements more often than median/small advertisements.
+
++ It also tends to combine advertisements with promotions.
+
+**Questions**
+
++ How do different combinations affect units sold?
+
+
+## Multi-variate graphical - quantitative
+
++ Correlation graph    
+
+```{r message=FALSE, warning=FALSE}
+# Use ggpairs from the GGally package
+gm %>%
+  select(-week) %>%  # Remove week since correlation is meaningless
+  select(-iri_key) %>% # Remove iri_key since it is a categorical data
+  select(-brand) %>%  # Remove brand since it is a categorical data
+  select(-UPC) %>%  # Remove UPC since it is a categorical data
+  select(-package) %>%  # Remove package since it is a categorical data
+  select(-promo) %>% # Remove promo since it is a categorical data
+  select(-ad) %>% # Remove ad since it is a categorical data
+  select(-flavor) %>% # Remove flavor it is a categorical data
+  ggpairs()
+  
+```
+
+**Observations on the graph**
+
++ Price and volume have the highest correlation
+   - Compared to the other two correlations, the correlation between price and volume has much bigger value
+   - Price range between 2.5 and 5.0 has the highest volume from the scatter plot graph 
+   
++ Units and volume have the lowest correlation
+   - From the scatter plot graph of price and units, it is hard to define what is trying to tell because the points are scattered all over the places
+
+## Multi-variate graphical - quantitative
+
+**Scatterplots of interest**
+
+```{r}
+# Code scatterplots using grid.arrange so can see all quantity variables of interest together
+grid.arrange(
+  gm %>% 
+    ggplot(aes(price, units)) +
+    geom_point() + 
+    geom_jitter() +
+    geom_smooth(method = "lm", se = FALSE),
+
+  gm %>% 
+    ggplot(aes(volume, units)) +
+    geom_point() +
+    geom_jitter() +
+    geom_smooth(method = "lm", se = FALSE),
+
+  gm %>% 
+    ggplot(aes(price, volume)) +
+    geom_point() +
+    geom_jitter() +
+    geom_smooth(method = "lm", se = FALSE),
+
+  ncol = 2
+)
+```
+
+** Observations on quantitative graphs**
+
++ First scatter plots graph shows the relationship between price and units, and it has a negative slope.
+  - As the price gets higher, the number of cereal packages sold is decreasing
+  - Price range between $2.5 to $6.75 has the highest frequency
+
++ The second scatter plots graph shows the relationship between volume and units, and the graphs have a slightly positive slope.
+ - As the cereal package size increases, the number of cereal packages sold is increasing
+ - In the general hypothesis, the biggest volume might be getting the highest selling but the graph shows that the size of 1 to 1.5 is getting the highest number of packages sold.
+ - It seems the smaller size of package likely to make more profits.
+ 
++ The third graph shows the relationship between price and volume, and it has a positive slope
+  - As the price is increasing, the volume is also increased
+  - A large portion of prices are between $2.5 and $5.0.
+
+
+## Multi-variate graphical - categorical and quantitative
+
+### Clustered Barplot
+```{r}
+# Build the clustered bar graph of mean by first create/shaping data, then add graph layers
+
+# First get the data and name the graph so we can build it by layer
+d <- gm %>%
+# Next de-select Region since can't get mean of factor
+  select(-c(iri_key,UPC, week, ad, flavor, package, promo))%>%
+  # Remove the factor Region because cannot get a mean
+# group_by is by factor level, so group by brand
+  group_by(brand) %>% 
+# Now we will take the mean of all remaining columns so we can graph them
+  summarise_all(funs(mean)) %>% 
+# gather is used to reshape the data so can make a bar graph by "Variable"
+  gather("Variable", "Mean", -(brand))
+
+```
+
+```{r}
+# Now set frame for plot
+  # Notice new variables "Variable" and "Mean"
+umf_bar <-d %>%  ggplot(aes(x = Variable, y = Mean, fill = brand)) + 
+      # Set stat and position to get side-by-side bar
+    geom_bar(stat = "identity", position = "dodge")
+  # Add labels to each bar
+umf_bar <- umf_bar+
+      # Add a main title
+    ggtitle("The General Mill product has the Highest Profibility") +
+    theme_classic()
+
+# Call the graph
+umf_bar
+```
+
+** Observations on the graph **
+
++ All the brands have similar means in the volume.
+
++ All the brands have similar values on the price.
+
+## The number of packages sold by flavor, promo, and ad
+```{r}
+gr_unit<-gm %>% 
+  group_by(promo, flavor, ad) %>% # subsets for each of these variables
+  summarize(units = n()) %>% 
+  ggplot(aes(x = flavor, y = units, fill = promo, color = ad)) + # Color sets bar border
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_fill_brewer() + # Sets custom color palette for bar
+    scale_color_brewer(palette = "Set1") # Sets custom color palette for bar border
+ # Add labels to each bar
+gr_units<-gr_unit+ geom_text(aes(label = round(units, 2)), vjust = -0.5, color = "black",
+            position = position_dodge(.9), size = 4) 
+
+# Call the graph
+gr_units
+```
+
+** Observations on the graph **
+
++ Compared to the other flavors, regular and toasted are getting extremely higher numbers of packages sold.
+
++ The pakages without store promotions or advertisements are sold more compared to the ones with advertisements or store promotions.
+
++ The flavors of Cinnamon toast, Cocoa, and Fruit have similar numbers of units sold.
+
+
+## New variable Revenue and related graphs
+
+### Looking into the relationship between flavors and revenue
+```{r}
+# Mutate new variable revenue
+gm <- gm %>% 
+  mutate(rev = price * units) 
+# Looking into the relationship between flavors and total revenue
+gm %>% 
+  select(rev, flavor, package) %>% 
+  group_by(flavor) %>% 
+  ggplot(mapping = aes(x = flavor, y = rev, fill = package)) +
+  geom_bar(stat = "identity")
+```
+
+**Observations on the graph**
+
++ Even though the regular flavor has much higher units sold than other flavors, the revenue of it and the toasted flavor are very similar.
+
++ Revenue gained from the cinnamon toast flavor is the third highest even though it has the lowest units sold.
+
+### relationship between flavors and mean revenue
+```{r}
+# Looking into the relationship between flavors and mean revenue
+gm %>% 
+  select(rev, flavor) %>% 
+  group_by(flavor) %>% 
+  summarise(mean_rev = mean(rev)) %>% 
+  ggplot(mapping = aes(x = flavor, y = mean_rev)) +
+  geom_bar(stat = "identity")
+
+```
+
+**Observations on the graph**
+
++ Cinnamon toast flavor has the second highest mean revenue even though it has the lowest units sold.
+
++ The toasted flavor has the highest mean revenue. 
+
++ The mean revenue gained from the fruit flavor is the lowest. The probable reason might be that it has the highest portion of promotions.
+
+### relationship between revenue and week
+
+```{r}
+# Look at revenue over time
+  gm %>% 
+  group_by(week, rev, ad) %>% # subsets for each of these variables
+  ggplot(aes(x = week, y = rev, fill = ad)) + # Color sets bar border
+    geom_bar(stat = "identity") 
+  
+```
+
+**Observations on the graph**
+
++ Revenue does not seem to have a strong correlation with week and advertisements.
+
++ There are too many weeks to see the relationships among week, revenue and advertisement.
+
+
+## Explore the relationships between producers and other variables
+
+```{r}
+# Seperating brands by producers
+gm$com <- str_sub(gm$brand, 1, 4)
+gm$com <- as.factor(gm$com)
+summary(gm)
+```
+
+There are three producers including General Mills.
+
+
+### Statistical Validity for producers and flavors
+
++ Tell if there is a pattern for flavors by each producer    
+    - Are the factor levels independent  
+
++ Null hypothesis: Are all sales the same  
+
+```{r}
+# Are flavors and Producers sales similar?
+# Not tidyverse so have to use base code
+chisq.test(table(gm$flavor, gm$com))
+
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05
+
++ The sales of flavors are different for different producers.
+
+### t-test of revenue across producers   
+
++ Null hypothesis: Revenue is the same across producers  
+
+```{r}
+# Not tidyverse so have to use base code
+t.test(gm$rev[gm$com == "GENE"], gm$rev[gm$com == "KELL"])
+t.test(gm$rev[gm$com == "GENE"], gm$rev[gm$com == "POST"])
+t.test(gm$rev[gm$com == "KELL"], gm$rev[gm$com == "POST"])
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05
+
++ Revenue are different for different producers.
+
+
+### Significance of correlation for revenue and price
+
++ Null hypothesis: revenue and price are not correlated
+
+```{r}
+# Are the correlations statistically significant?
+# Not tidyverse so have to use base code
+cor.test(gm$rev, gm$price)
+
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05.
+
++ Revenue and price are correlated.
+
+
+### Revenue by producers
+```{r}
+# Look at revenue by producers
+  ggplot(data = gm, aes(x =com, y = rev)) + 
+    geom_bar(stat = "identity") 
+```
+
+**Observations on the graph**
+
++ Kelloggs has the highest revenue.
+
++ Post has the lowest revenue.
+
++ General Mills has lower revenue than Kelloggs but much higher revenue than Post.
+
+
+### Units by producers
+```{r}
+# Look at units sold by producers
+  ggplot(data = gm, aes(x =com, y = units)) + 
+    geom_bar(stat = "identity") 
+```
+
+**Observations on the graph**
+
++ Kelloggs has the highest revenue, while Post has the lowest revenue, which matches what we saw from the graph above.
+
+
+### Mean revenue by producers
+
+```{r}
+# Looking into the relationship between flavors and mean revenue
+gm %>% 
+  select(rev, com) %>% 
+  group_by(com) %>% 
+  summarise(mean_rev = mean(rev)) %>% 
+  ggplot(mapping = aes(x = com, y = mean_rev)) +
+  geom_bar(stat = "identity")
+
+```
+
+**Observations on the graph**
+
++ General Mills has the highest mean revenue.
+
++ The differences among the three producers' mean revenues are not as large as what we saw from the last two graphs.
+
+
+### Boxplot for revenue and producers
+```{r}
+# See how revenue is associated with the producers
+ggplot(gm, aes(x = com, y = rev)) +
+    geom_boxplot()
+```
+
+**Observations on the graph**
+
++ This graph explains why General Mills has the highest mean revenue since most of its products have higher revenue than its competitors.
+
++ Kelloggs has the highest revenue because it has a lot of outliers that have high revenues.
+
+
+# Detailed EDA
+
+## Questions to be answered
+
+1. How does revenue change over time?
+
+2. What are the factors that affect revenue the most?
+
+3. How do promotions and advertisements affect revenue?
+
+4. How do the promotions and advertisement help General Mills gain revenue compared to its competitors? 
+
+
+## Finding the answers through tables and graphs
+
+### How does the reveune change over time across producers by promotions, and advertisements? 
+```{r}
+# Create facet grid to examine how three producer's revenue change over time by promotions and advertisements
+gm %>% 
+  group_by(com, ad, promo) %>% 
+  ggplot(aes(x = week, y = rev, color = promo)) +
+  geom_line() +
+  facet_grid(com ~ ad)
+
+```
+
+**Observations on the graph**
+
++ It seems that Post is more likely to have advertisement and promotions at the same time.
+
++ Producers are more likely to combine promotions with median/small advertisements.
+
+### What is the density of revenue, units, and price by producers?
+```{r}
+# First calculate the means
+rev_mean <- gm %>% 
+  group_by(com) %>% 
+  summarise(rev_mean = mean(rev))
+
+price_mean <- gm %>% 
+  group_by(com) %>% 
+  summarise(price_mean = mean(price))
+
+units_mean <- gm %>% 
+  group_by(com) %>% 
+  summarise(units_mean = mean(units))
+
+# Use geom_density
+grid.arrange(
+  gm %>% 
+  ggplot(aes(x = rev, fill = com, color = com)) + 
+  geom_density(alpha = 0.25) +
+  geom_vline(data = rev_mean, aes(xintercept = rev_mean, color = com)) + # Bring in calculated mean
+  xlim(-50, 150), # Had to set bounts to visualize
+
+  gm %>% 
+  ggplot(aes(x = units, fill = com, color = com)) + 
+  geom_density(alpha = 0.25) +
+  geom_vline(data = units_mean, aes(xintercept = units_mean, color = com)) + # Bring in calculated mean
+  xlim(-10, 40), # Had to set bounts to visualize
+  
+  gm %>% 
+  ggplot(aes(x = price, fill = com, color = com)) + 
+  geom_density(alpha = 0.25) +
+  geom_vline(data = price_mean, aes(xintercept = price_mean, color = com)) + # Bring in calculated mean
+  xlim(-1, 10) # Had to set bounts to visualize
+)
+```
+
+**Observations on the graphs**
+
++ The shape of the distribution for revenue and units are very similar for all the producers, which means that revenue is affected by units sold more than price.
+
++ General Mills has higher revenue sales than its competitors.
+
++ General Mills also has higher prices for products and more sales with more units sold. 
+
+### What is the correlations between revenue and units?
+```{r}
+# First look at the graph of all discounts and profits, by Category and Price
+gm %>% 
+  filter(ad != "NONE") %>%
+  ggplot(aes(x = units, y = rev, color = ad, size = price)) +
+  geom_jitter(alpha = 4/5) 
+
+```
+
+**Observations on the graphs**
+
++ More units and higher prices lead to higher revenue.
+
++ The relationship between units and prices is not very obvious.
+
+### What is the relationship between flavors and producers?
+#### Table
+```{r}
+# First make a table of counts to calculate the confidence interval
+R_C_n <- gm %>% 
+  group_by(com, flavor) %>% 
+  summarise(n = n())
+
+# Calulate confidence intervals using mulitnomialCI           
+R_C_n_ci <- multinomialCI(t(R_C_n[, 3]), 0.05) # Have to use t() to transpose the count table  # alpha = 0.05 indicates 95% confidence level
+
+# Next create a table with proportions that is ggplot friendly  
+R_C_tab <- gm %>% 
+  group_by(com, flavor) %>% 
+  summarise(p = n()/sum(nrow(gm)))
+
+# Add the confindence inervals to the table of proportions
+R_C_tab$ci_l <- R_C_n_ci[,1]
+R_C_tab$ci_u <- R_C_n_ci[,2]
+
+# Show the table
+(R_C_tab)
+
+```
+
+#### Visuals of proportions with confidence intervals 
+
+(1) Proportions with confidence intervals
+```{r}
+# Graph of proportions with confidence intervals
+R_C_tab %>% 
+  ggplot(aes(x = flavor, y = p, fill = com)) +
+  geom_bar(stat="identity", position = "dodge") +
+  geom_text(aes(label = round(p, 2)), vjust=-2.7, color = "black", # vjust moves lables above CI
+            position = position_dodge(0.9), size = 4) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), 
+                width = 0.4, position = position_dodge(0.9))
+
+```
+
+**Observations on the graph**
+
++ Only General Mills sells the cinnamon flavor. And only Kelloggs sells the fruit flavor.
+
++ Post only sells the regular flavor.
+
++ Kelloggs has the biggest numbers of regular and toasted flavor sold. 
+
+(2) Mean with confidence intervals
+
+```{r}
+# 90% CI, get z-value for upper tail, use .95 since is one sided
+z <- qnorm(.95)
+
+# Incorporate CI into bar graph of means
+gm %>%
+  group_by(com, ad) %>%
+  summarise(m = mean(rev), sd = sd(rev), 
+            n = n(), ci = z * sd/sqrt(n)) %>%
+  ggplot(aes(x = com, y = m, fill = ad)) +
+  geom_bar(stat = "identity", position = "dodge") + geom_text(aes(label = round(m, 2)), vjust=-2.7, color = "black", # vjust moves lables above CI
+            position = position_dodge(0.9), size = 4) +
+  geom_errorbar(aes(ymin = m - ci, ymax = m + ci), 
+                width = 0.5, position = position_dodge(0.9)) +
+  ggtitle("Mean Revenue is")
+
+```
+
+**Observations on the graph**
+
++ The means of revenue for no ads are pretty reliable for all producers.
+
++ The means of revenue for median/small ads are not so reliable for all producers.
+
++ The means of revenue for big ads are not so reliable for General Mills and Post.
+
+### What are the correlationships between revenue and all other variables? 
+#### Multiple regression
+```{r}
+# Adding an interaction term for Discount and Price because likely related to profit
+mod <- lm(rev ~  ad + promo + price + units + volume, data = gm)
+
+# Review output
+summary(mod)
+
+```
+
+#### Coefficient table
+```{r}
+# Pull out the coefficients and confidence interval for table and graph
+coe <- summary(mod)$coefficients # get coefficients and related stats
+coe_CI <- as.data.frame(cbind(coe[-1, ], confint(mod)[-1, ])) # find and bind CI, remove Intercept 
+
+# Rename results data frame
+names(coe_CI) <- c("estimate", "se", "t", "pval","low_CI","high_CI") 
+
+# Print out table
+htmlTable(round(coe_CI[order(coe_CI$pval, decreasing = FALSE), ], 3))
+
+```
+
+#### Coefficient graph
+```{r}
+# Reorder for more clarity
+(g1 <- ggplot(coe_CI, aes(x = estimate, y = reorder(row.names(coe_CI),desc(pval)))) +
+  geom_point(size = 3) +
+  xlim(min(coe_CI$low_CI), max(coe_CI$high_CI)) +
+  ylab("Variable") +
+  xlab("Coefficient") +
+  theme_bw() 
+)
+ 
+```
+
+
+**Observations on the table and graph**
+
++ We can see from the estimate coefficients that 
+  - the promotions and median/small advertisements affect revenue negatively
+  - no advertisements, price, and units have positive relationships with revenue.
+
++ However, since the p-values for the coefficients indicate whether these relationships are statistically significant or not, we can see that
+  - the relationship between revenue and median/small advertisements and the relationship between revenue and the volume of the products are not statistically significant
+  - the other relationships are statistically significant.
+  
+  
+### What are the percentage of promotions by producers?
+```{r}
+# percentage table for promotions
+d <-   gm %>% 
+  tabyl(com, promo) %>% 
+  adorn_totals(where = c("col")) %>% 
+  adorn_percentages(denominator = "row") %>%  
+  adorn_pct_formatting(digits = 0)
+
+d
+```
+
+**Observations on the table**
+
++ General Mills is less likely to have in store promotions compared to its competitors.
+
++ Post and Kelloggs have the same percentage of in store promotions.
+
+
+### How do promotions affect numbers of products sold across producers?
+```{r}
+# Barplot for revenue by producers and promotions
+gm %>%
+  count(com, promo) %>%
+    ggplot(aes(com, y = n, fill = promo)) + # Color sets bar border
+    geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(n, 2)), vjust = -0.5, color = "black")
+
+```
+
+**Observations on the graph**
+
++ Kelloggs has the highest numbers of products sold.
+
++ It seems that the proportion of sales with promotions of Post's is the biggest, while General Mills has the relatively smallest proportion of promotion sales.
+
+
+### How do promotions affect total revenue across producers?
+```{r}
+# Look at revenue by producers
+tot_promo<-gm %>% 
+  group_by(com, promo) %>% 
+  summarise(tot = sum(rev)) %>% 
+  ggplot(aes(x = com, y = tot, fill = promo)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Total Revenue across producers", sub= "Kelloggs has the highest total revenue for both with and without promotions")+ xlab("Brand: GENE=General Mills, Kell= Kelloggs, POST= Post Shredded") + ylab("Total Revenue") + labs(fill = "Promotions") + theme_classic()
+
+# View graph
+tot_promo
+```
+
+**Observations on the graphs**
+
++ Kelloggs has the highest total revenue for both with and without promotions.
+
++ All producers have higher total revenues for the sales without promotions.
+
+
+### How do promotions affect mean revenue across producers?
+```{r}
+promo_mrev <- gm %>% 
+  group_by(com, promo) %>% 
+  summarise(m = mean(rev)) %>% 
+  ggplot(aes(x = promo, y = m, fill = reorder(com,-m))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(m, 2)), vjust=-2.7, color = "black", # vjust moves lables above CI
+            position = position_dodge(0.9), size = 3) +
+  ggtitle("General Mills has the highest mean revenue with and without promotions", sub = "Promotions help the producers have higher mean revenue") +
+  xlab("Promotions: 0 = Without Promotions, 1 = With Promotions") + ylab("Mean Revenue")  +
+  labs(fill = "Producers") +
+  theme_classic()  +
+  scale_fill_brewer() # new color palatte
+
+# View graph
+promo_mrev
+```
+
+**Observations on the graphs**
+
++ General Mills has the highest mean revenue for both with and without promotions.
+
++ All producers have higher mean revenue for the sales with promotions.
+
+
+### What are the percentages of ads by producers?
+```{r}
+# percentage tables for ads
+c <-  gm %>% 
+  tabyl(com, ad) %>% 
+  adorn_totals(where = c("col")) %>% 
+  adorn_percentages(denominator = "row") %>%  
+  adorn_pct_formatting(digits = 0)
+
+c
+```
+
+**Observations on the table**
+
++ General Mills is less likely to have median/small ads compared to its competitors.
+
++ General Mills and Kelloggs have higher percentages of big ads than median/small ads, while Post has a higher percentage of median/small ads.
+
+### How do advertisements affect total revenue across producers?
+```{r}
+# Look at revenue by producers
+gm %>% 
+  group_by(com, ad) %>% 
+  summarise(tot = sum(rev)) %>% 
+  ggplot(aes(x = com, y = tot, fill = ad)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Total Revenue") 
+```
+
+**Observations on the graphs**
+
++ Kelloggs has the highest total revenue for across all advertisement categories.
+
++ General Mills has the second highest total revenue for across all advertisement categories.
+
++ All producers have the highest total revenue for the sales without advertisements and second highest total revenue for the sales with big advertisements.
+
+
+### How do advertisements affect mean revenue across producers?
+```{r}
+ad_mrev <- gm %>% 
+  group_by(com, ad) %>% 
+  summarise(m = mean(rev)) %>% 
+  ggplot(aes(x = ad, y = m, fill = reorder(com,-m))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(m, 2)), vjust=-2.7, color = "black", # vjust moves lables above CI
+            position = position_dodge(0.9), size = 3) +
+  ggtitle("General Mills has the highest mean revenue across  all categories of ads or without ads", sub = "Big advertisements help the producers have higher mean revenue") +
+  xlab("Advertisements: A = Big, B = medium/Small, NONE = None") + ylab("Mean Revenue")  +
+  labs(fill = "Producers") +
+  theme_classic()  +
+  scale_fill_brewer() # new color palatte
+
+#view graph
+ad_mrev
+```
+
+**Observations on the graphs**
+
++ General Mills has the highest mean revenue for all advertisement types.
+
++ Big advertisements help General Mills have higher mean revenues, while median/small advertisements do not.
+
++ For the other two producers, median/small advertisements help them have higher mean revenues.
+
+#### Testing on whether the finding is statistically significant
+
+##### Statistical Validity for producers and mean revenue
+
++ Null hypothesis: All revenue means are the same for producers
+
+```{r}
+# Not tidyverse so have to use base code
+chisq.test(table(gm$com, gm$rev))
+
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05
+
++ The revenue means are different for different producers.
+
+##### Statistical Validity for promotions and mean revenue
+
++ Null hypothesis: All revenue means are the same for with/without promotions
+
+```{r}
+# Not tidyverse so have to use base code
+chisq.test(table(gm$promo, gm$rev))
+
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05
+
++ The revenue means are different for with/without promotions.
+
+##### Statistical Validity for advertisements and mean revenue
+
++ Null hypothesis: All revenue means are the same for big, medium/small, and no advertisements
+
+```{r}
+# Not tidyverse so have to use base code
+chisq.test(table(gm$ad, gm$rev))
+
+```
+
++ Reject the null hypothesis because the p-value is much smaller than 0.05
+
++ The revenue means are different for big, medium/small, and no advertisements.
+
+# Summary
+
++ Units and prices have positive correlations with revenue.
+
++ Kelloggs has the highest total sales and revenues, and General Mills has the second highest total sales and revenues.
+
++ General Mills has the highest mean revenues.
+
++ Promotions and big advertisements help producers get higher mean revenue.
+
++ Medium/small advertisements do not help General Mills have higher mean revenues, while they help the other two producers have higher mean revenues.
+
+
+
+# Save graphs for use in memo
+
+```{r, message = FALSE}
+# Can load into other documents like anyother .png file
+ggsave("promo_mrev.png", plot = promo_mrev)
+ggsave("ad_mrev.png", plot = ad_mrev)
+ggsave("tot_promo.png", plot = tot_promo)
+ggsave("promo_ads.png", plot = promo_ads)
+```
